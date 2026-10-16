@@ -1,0 +1,3 @@
+meu-chat-rag/
+├── app.py
+└── requirements.txt
