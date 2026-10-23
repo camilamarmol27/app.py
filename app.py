@@ -43,26 +43,33 @@ st.markdown(
 )
 
 # ==========================================
-# CONFIGURAÇÃO DA API (MICROSOFT FOUNDRY)
-# ==========================================
-API_KEY = "6t2pTNsmNafDyo53MDAFIrvvQRBZXP7dLcr5j3TLxMS34LQVq3ZUJQQJ99CHACHYHv6XJ3w3AAAAACOGT7os"
-MODEL_DEPLOYMENT = "gpt-4.1-mini"
-ENDPOINT = "https://marcelomaffeis-05082026-resource.services.ai.azure.com/"
-
-# Inicialização do cliente Azure OpenAI (compatível com Microsoft Foundry)
-try:
-  client = AzureOpenAI(
-      api_key=API_KEY,
-      api_version="2024-02-01",
-      azure_endpoint=ENDPOINT,
-  )
-except Exception as e:
-  st.error(f"Erro ao inicializar o cliente da API: {e}")
-
-# ==========================================
-# BARRA LATERAL (UPLOAD DE ARQUIVOS / RAG)
+# BARRA LATERAL (CREDENCIAS E RAG)
 # ==========================================
 with st.sidebar:
+  st.header("⚙️ Configurações da API")
+  st.markdown(
+      "Insira suas credenciais do Microsoft Foundry para autenticar a"
+      " conexão."
+  )
+
+  # Campos dinâmicos para inserção segura das credenciais
+  minha_chave = st.text_input(
+      "Chave da API (minha_chave)",
+      type="password",
+      help="Cole aqui sua chave secreta da API",
+  )
+  meu_endpoint = st.text_input(
+      "Endpoint (meu_endpoint)",
+      value="https://seu-recurso.services.ai.azure.com/",
+      help="Cole aqui a URL do endpoint do Azure AI Studio",
+  )
+  meu_modelo = st.text_input(
+      "Nome do Modelo (meu_modelo)",
+      value="gpt-4.1-mini",
+      help="Nome do Deployment configurado no Azure AI Studio",
+  )
+
+  st.markdown("---")
   st.header("📂 Base de Conhecimento (RAG)")
   st.markdown(
       "Envie um documento PDF ou TXT para que o bot utilize o conteúdo como"
@@ -72,6 +79,7 @@ with st.sidebar:
   uploaded_file = st.file_uploader(
       "Escolha um arquivo", type=["pdf", "txt"], label_visibility="collapsed"
   )
+
 
   # Função para extrair texto dos arquivos
   def extract_text_from_file(file):
@@ -119,6 +127,18 @@ with st.sidebar:
   )
 
 # ==========================================
+# INICIALIZAÇÃO DO CLIENTE DA API
+# ==========================================
+client = None
+if minha_chave and meu_endpoint:
+  try:
+    client = AzureOpenAI(
+        api_key=minha_chave, api_version="2024-02-01", azure_endpoint=meu_endpoint
+    )
+  except Exception as e:
+    st.error(f"Erro ao inicializar o cliente da API: {e}")
+
+# ==========================================
 # INTERFACE PRINCIPAL DO CHAT
 # ==========================================
 st.title("🤖 ChatBot com RAG (Microsoft Foundry)")
@@ -126,61 +146,68 @@ st.write(
     "Faça perguntas gerais ou baseadas no documento enviado na barra lateral."
 )
 
-# Container com borda customizada para a área do chat
-with st.container():
-  # Inicialização do histórico de mensagens
-  if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Verificação se as credenciais foram informadas
+if not minha_chave or not meu_endpoint:
+  st.warning(
+      "⚠️ Por favor, insira a sua **Chave da API (minha_chave)** e o"
+      " **Endpoint (meu_endpoint)** na barra lateral para habilitar o chat."
+  )
+else:
+  # Container com borda customizada para a área do chat
+  with st.container():
+    # Inicialização do histórico de mensagens
+    if "messages" not in st.session_state:
+      st.session_state.messages = []
 
-  # Exibição do histórico de conversas
-  for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-      st.markdown(message["content"])
+    # Exibição do histórico de conversas
+    for message in st.session_state.messages:
+      with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-  # Entrada do usuário
-  if prompt := st.chat_input("Digite sua mensagem aqui..."):
-    # Adiciona a mensagem do usuário ao histórico
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-      st.markdown(prompt)
+    # Entrada do usuário
+    if prompt := st.chat_input("Digite sua mensagem aqui..."):
+      # Adiciona a mensagem do usuário ao histórico
+      st.session_state.messages.append({"role": "user", "content": prompt})
+      with st.chat_message("user"):
+        st.markdown(prompt)
 
-    # Construção do Contexto RAG
-    system_prompt = (
-        "Você é um assistente virtual inteligente e prestativo. Responda"
-        " profissionalmente às perguntas do usuário."
-    )
-
-    if st.session_state.get("file_text"):
-      system_prompt += (
-          "\n\nUtilize primariamente o seguinte contexto extraído do documento"
-          f" enviado pelo usuário para formular sua resposta:\n--- CONTEXTO"
-          f" DO DOCUMENTO ---\n{st.session_state.file_text}\n--- FIM DO"
-          " CONTEXTO ---\nSe a resposta não estiver explícita no contexto"
-          " fornecido, utilize seu conhecimento geral, mas avise que a"
-          " resposta não veio diretamente do documento."
+      # Construção do Contexto RAG
+      system_prompt = (
+          "Você é um assistente virtual inteligente e prestativo. Responda"
+          " profissionalmente às perguntas do usuário."
       )
 
-    # Preparação das mensagens para a API
-    messages_payload = [{"role": "system", "content": system_prompt}]
-    for m in st.session_state.messages:
-      messages_payload.append({"role": m["role"], "content": m["content"]})
-
-    # Chamada à API do Microsoft Foundry (Azure OpenAI)
-    with st.chat_message("assistant"):
-      message_placeholder = st.empty()
-      message_placeholder.markdown("Pensando...")
-
-      try:
-        response = client.chat.completions.create(
-            model=MODEL_DEPLOYMENT, messages=messages_payload, temperature=0.7
+      if st.session_state.get("file_text"):
+        system_prompt += (
+            "\n\nUtilize primariamente o seguinte contexto extraído do"
+            f" documento enviado pelo usuário para formular sua"
+            f" resposta:\n--- CONTEXTO DO DOCUMENTO ---\n{st.session_state.file_text}\n---"
+            " FIM DO CONTEXTO ---\nSe a resposta não estiver explícita no"
+            " contexto fornecido, utilize seu conhecimento geral, mas avise"
+            " que a resposta não veio diretamente do documento."
         )
-        assistant_response = response.choices[0].message.content
-        message_placeholder.markdown(assistant_response)
-      except Exception as e:
-        assistant_response = f"Ocorreu um erro ao comunicar com a API: {e}"
-        message_placeholder.error(assistant_response)
 
-    # Salva a resposta do assistente no histórico
-    st.session_state.messages.append(
-        {"role": "assistant", "content": assistant_response}
-    )
+      # Preparação das mensagens para a API
+      messages_payload = [{"role": "system", "content": system_prompt}]
+      for m in st.session_state.messages:
+        messages_payload.append({"role": m["role"], "content": m["content"]})
+
+      # Chamada à API do Microsoft Foundry (Azure OpenAI)
+      with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        message_placeholder.markdown("Pensando...")
+
+        try:
+          response = client.chat.completions.create(
+              model=meu_modelo, messages=messages_payload, temperature=0.7
+          )
+          assistant_response = response.choices[0].message.content
+          message_placeholder.markdown(assistant_response)
+        except Exception as e:
+          assistant_response = f"Ocorreu um erro ao comunicar com a API: {e}"
+          message_placeholder.error(assistant_response)
+
+      # Salva a resposta do assistente no histórico
+      st.session_state.messages.append(
+          {"role": "assistant", "content": assistant_response}
+      )
