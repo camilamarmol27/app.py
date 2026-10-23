@@ -48,20 +48,23 @@ st.markdown(
 with st.sidebar:
   st.header("⚙️ Configurações da API")
   st.markdown(
-      "Insira suas credenciais do Microsoft Foundry para autenticar a"
-      " conexão."
+      "Credenciais carregadas para o Microsoft Foundry. Você pode alterá-las"
+      " se necessário."
   )
 
-  # Campos dinâmicos para inserção segura das credenciais
+  # Campos dinâmicos com os valores pré-preenchidos
   minha_chave = st.text_input(
       "Chave da API (minha_chave)",
+      value=(
+          "1gsyJYiGIr1rIjIm6heIq96VWJI5gMgXeXCaYCHx5WeeWGm3AMYvJQQJ99CJACHYHv6XJ3w3AAAAACOGUF3S"
+      ),
       type="password",
-      help="Cole aqui sua chave secreta da API",
+      help="Chave secreta da API",
   )
   meu_endpoint = st.text_input(
       "Endpoint (meu_endpoint)",
-      value="https://seu-recurso.services.ai.azure.com/",
-      help="Cole aqui a URL do endpoint do Azure AI Studio",
+      value="https://marcelomaffeis-7430-resource.services.ai.azure.com/openai/v1",
+      help="URL do endpoint do Azure AI Studio",
   )
   meu_modelo = st.text_input(
       "Nome do Modelo (meu_modelo)",
@@ -149,8 +152,8 @@ st.write(
 # Verificação se as credenciais foram informadas
 if not minha_chave or not meu_endpoint:
   st.warning(
-      "⚠️ Por favor, insira a sua **Chave da API (minha_chave)** e o"
-      " **Endpoint (meu_endpoint)** na barra lateral para habilitar o chat."
+      "⚠️ Por favor, certifique-se de preencher a **Chave da API** e o"
+      " **Endpoint** na barra lateral."
   )
 else:
   # Container com borda customizada para a área do chat
@@ -211,3 +214,4 @@ else:
       st.session_state.messages.append(
           {"role": "assistant", "content": assistant_response}
       )
+        
