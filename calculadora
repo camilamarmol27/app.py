@@ -1,130 +1,57 @@
-class CalculadoraRetencaoImpostos:
+def calcular_impostos_indiretos(valor_base, tipo_operacao, aliquota_icms_iss, aliquota_ipi=0):
     """
-    Calculadora interativa de retenções de impostos para prestação de serviços no Brasil.
-    Considera PIS, COFINS, CSLL, ISS, INSS e IRRF com suas respectivas regras de dispensa.
+    Calcula os principais impostos indiretos sobre uma operação.
     """
+    # Alíquotas padrão para PIS e Cofins (Regime Não-Cumulativo)
+    aliquota_pis = 0.0165
+    aliquota_cofins = 0.076
     
-    def __init__(self, valor_bruto: float, aliquota_iss: float = 5.0, aliquota_inss: float = 11.0, aliquota_irrf: float = 1.5):
-        self.valor_bruto = valor_bruto
-        self.aliquota_iss = aliquota_iss
-        self.aliquota_inss = aliquota_inss
-        self.aliquota_irrf = aliquota_irrf
-        
-    def calcular_federais_csrf(self) -> dict:
-        """Calcula PIS (0.65%), COFINS (3.0%) e CSLL (1.0%) - Mínimo de R$ 215,00."""
-        pis = self.valor_bruto * 0.0065
-        cofins = self.valor_bruto * 0.03
-        csll = self.valor_bruto * 0.01
-        total_federal = pis + cofins + csll
-        
-        retem = total_federal > 215.00
-        if not retem:
-            pis, cofins, csll, total_federal = 0.0, 0.0, 0.0, 0.0
-            
-        return {"PIS": pis, "COFINS": cofins, "CSLL": csll, "Total": total_federal, "retido": retem}
-        
-    def calcular_irrf(self) -> dict:
-        """Calcula o IRRF (padrão 1.5%) - Mínimo de retenção de R$ 10,00."""
-        irrf = self.valor_bruto * (self.aliquota_irrf / 100.0)
-        retem = irrf > 10.00
-        if not retem:
-            irrf = 0.0
-        return {"IRRF": irrf, "retido": retem}
-        
-    def calcular_iss(self) -> float:
-        """Calcula o ISS retido com base na alíquota do município."""
-        return self.valor_bruto * (self.aliquota_iss / 100.0)
-        
-    def calcular_inss(self) -> float:
-        """Calcula o INSS retido (padrão de 11%)."""
-        return self.valor_bruto * (self.aliquota_inss / 100.0)
-        
-    def gerar_resumo(self) -> dict:
-        federais = self.calcular_federais_csrf()
-        irrf_dict = self.calcular_irrf()
-        iss = self.calcular_iss()
-        inss = self.calcular_inss()
-        
-        total_retencoes = federais["Total"] + irrf_dict["IRRF"] + iss + inss
-        valor_liquido = self.valor_bruto - total_retencoes
-        
-        return {
-            "valor_bruto": self.valor_bruto,
-            "pis": federais["PIS"],
-            "cofins": federais["COFINS"],
-            "csll": federais["CSLL"],
-            "federais_retidos": federais["retido"],
-            "irrf": irrf_dict["IRRF"],
-            "irrf_retido": irrf_dict["retido"],
-            "iss": iss,
-            "inss": inss,
-            "total_retencoes": total_retencoes,
-            "valor_liquido": valor_liquido
-        }
-
-if __name__ == "__main__":
-    print("=" * 55)
-    print("      CALCULADORA DE RETENÇÃO DE IMPOSTOS (NF) - v2")
-    print("=" * 55)
+    # 1. Cálculo do IPI (Calculado "por fora" sobre a base)
+    valor_ipi = valor_base * (aliquota_ipi / 100)
     
-    try:
-        # Entradas via terminal
-        valor_input = input("Digite o valor bruto da nota (ex: 12000.00): ").strip()
-        valor_fatura = float(valor_input.replace(",", "."))
-        
-        iss_input = input("Digite a alíquota do ISS [%] (padrão 5.0): ").strip()
-        aliquota_iss = float(iss_input.replace(",", ".")) if iss_input else 5.0
-        
-        inss_input = input("Digite a alíquota do INSS [%] (padrão 11.0): ").strip()
-        aliquota_inss = float(inss_input.replace(",", ".")) if inss_input else 11.0
+    # 2. PIS e Cofins
+    valor_pis = valor_base * aliquota_pis
+    valor_cofins = valor_base * aliquota_cofins
+    
+    # 3. ICMS ou ISS (Exclusivos por tipo de operação)
+    valor_icms = 0
+    valor_iss = 0
+    
+    if tipo_operacao.upper() == "PRODUTO":
+        # ICMS incide sobre o valor da mercadoria
+        valor_icms = valor_base * (aliquota_icms_iss / 100)
+    elif tipo_operacao.upper() == "SERVIÇO":
+        # ISS incide sobre o valor do serviço
+        valor_iss = valor_base * (aliquota_icms_iss / 100)
+    
+    # 4. Totalizadores
+    total_impostos = valor_ipi + valor_pis + valor_cofins + valor_icms + valor_iss
+    valor_total_nota = valor_base + valor_ipi  # IPI soma no total da nota
+    
+    return {
+        "Valor Base": valor_base,
+        "ICMS": valor_icms,
+        "ISS": valor_iss,
+        "IPI": valor_ipi,
+        "PIS": valor_pis,
+        "Cofins": valor_cofins,
+        "Total de Impostos Indiretos": total_impostos,
+        "Carga Tributária Nominal (%)": (total_impostos / valor_base) * 100,
+        "Valor Total da Nota": valor_total_nota
+    }
 
-        irrf_input = input("Digite a alíquota do IRRF [%] (padrão 1.5): ").strip()
-        aliquota_irrf = float(irrf_input.replace(",", ".")) if irrf_input else 1.5
-        
-        # Processamento
-        calc = CalculadoraRetencaoImpostos(
-            valor_bruto=valor_fatura, 
-            aliquota_iss=aliquota_iss, 
-            aliquota_inss=aliquota_inss,
-            aliquota_irrf=aliquota_irrf
-        )
-        resumo = calc.gerar_resumo()
-        
-        # Montagem do texto de saída
-        texto_saida = []
-        texto_saida.append("=" * 55)
-        texto_saida.append("          DEMONSTRATIVO DE RETENÇÃO DE IMPOSTOS")
-        texto_saida.append("=" * 55)
-        texto_saida.append(f"Valor Bruto da Nota:    R$ {resumo['valor_bruto']:,.2f}")
-        texto_saida.append("-" * 55)
-        
-        if resumo['federais_retidos']:
-            texto_saida.append(f"PIS (0.65%):            R$ {resumo['pis']:,.2f}")
-            texto_saida.append(f"COFINS (3.0%):          R$ {resumo['cofins']:,.2f}")
-            texto_saida.append(f"CSLL (1.0%):            R$ {resumo['csll']:,.2f}")
-        else:
-            texto_saida.append("PIS/COFINS/CSLL:        Dispensado (Total <= R$ 215,00)")
-            
-        if resumo['irrf_retido']:
-            texto_saida.append(f"IRRF ({aliquota_irrf}%):           R$ {resumo['irrf']:,.2f}")
-        else:
-            texto_saida.append(f"IRRF ({aliquota_irrf}%):           Dispensado (Total <= R$ 10,00)")
+# --- EXEMPLO DE USO ---
+# Produto de R$ 10.000 com 18% de ICMS e 5% de IPI
+resultado = calcular_impostos_indiretos(
+    valor_base=10000.00, 
+    tipo_operacao="PRODUTO", 
+    aliquota_icms_iss=18.0, 
+    aliquota_ipi=5.0
+)
 
-        texto_saida.append(f"ISS ({aliquota_iss}%):             R$ {resumo['iss']:,.2f}")
-        texto_saida.append(f"INSS ({aliquota_inss}%):           R$ {resumo['inss']:,.2f}")
-        texto_saida.append("-" * 55)
-        texto_saida.append(f"Total das Retenções:    R$ {resumo['total_retencoes']:,.2f}")
-        texto_saida.append(f"Valor Líquido a Receb.: R$ {resumo['valor_liquido']:,.2f}")
-        texto_saida.append("=" * 55)
-        
-        # Exibe no console
-        resultado_final = "\n".join(texto_saida)
-        print("\n" + resultado_final)
-        
-        # Salva em arquivo de texto
-        with open("demonstrativo_impostos.txt", "w", encoding="utf-8") as arquivo:
-            arquivo.write(resultado_final)
-        print("\n[Sucesso] O demonstrativo foi salvo no arquivo 'demonstrativo_impostos.txt'!")
-        
-    except ValueError:
-        print("\n[Erro] Por favor, digite apenas números válidos (utilize ponto ou vírgula para decimais).")
+for chave, valor in resultado.items():
+    if "Percentual" in chave or "%" in chave:
+        print(f"{chave}: {valor:.2f}%")
+    else:
+        print(f"{chave}: R$ {valor:.2f}")
+
